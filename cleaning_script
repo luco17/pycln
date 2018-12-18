@@ -1,1 +1,199 @@
-import pandas as pd
+import pandas as pd, matplotlib.pyplot as plt, numpy as np, glob, re
+
+pd.set_option('display.max_columns', None)
+
+df = pd.read_csv('dob_jobs.csv', low_memory = False)
+
+df = df.loc[:, ['Job #', 'Doc #', 'Borough', 'Initial Cost', 'Total Est. Fee',
+       'Existing Zoning Sqft', 'Proposed Zoning Sqft',
+       'Enlargement SQ Footage', 'Street Frontage',
+       'ExistingNo. of Stories', 'Proposed No. of Stories',
+       'Existing Height', 'Proposed Height']]
+
+#Examining numericals#
+df.describe()
+
+#Examining a categorical#
+df.Borough.value_counts()
+
+#Visual EDA - HIST#
+df['Existing Zoning Sqft'].plot(kind = 'hist', rot = 70, logx = True, logy = True)
+plt.show()
+
+#Editing Initial Cost
+df['Initial Cost'] = pd.to_numeric(df['Initial Cost'].apply(lambda x: x.strip('$')))
+
+#Visual EDA - Box
+df.boxplot(column = 'Initial Cost', by = 'Borough', rot = 90)
+plt.show()
+
+#Editing Est Fee
+df['Total Est. Fee'] = pd.to_numeric(df['Total Est. Fee'].apply(lambda x: x.strip('$')))
+
+#Changing column names
+df.rename(columns = {'Initial Cost': 'initial_cost', 'Total Est. Fee':'total_est_fee'}, inplace = True)
+
+# Create and display the first scatter plot
+df.plot(kind = 'scatter', x = 'initial_cost', y = 'total_est_fee', rot = 70)
+plt.show()
+
+#Editing to remove outliers before replotting
+cost_to_cut = df.nlargest(n = 29, columns = ['initial_cost'])
+fee_to_cut = df.nlargest(n = 29, columns = ['total_est_fee'])
+cut_indices = np.concatenate([cost_to_cut.index, fee_to_cut.index])
+
+df_subset = df.drop(cut_indices)
+
+df_subset.plot(kind = 'scatter', x = 'initial_cost', y = 'total_est_fee', rot = 70)
+plt.show()
+
+###Working the airquality data
+df_air = pd.read_csv('airquality.csv')
+df_air.head()
+
+# Melt airquality: airquality_melt, creates a new variable column
+airquality_melt = pd.melt(frame = df_air, id_vars = ['Month', 'Day'], var_name = 'measurement', value_name = 'reading')
+airquality_melt.head()
+
+#Pivoting to turn the data back into tidy format, notice the creation of a mult-index
+#pivot_table also allows an aggfunc to aggregate duplicate values
+airquality_pivot = airquality_melt.pivot_table(index = ['Month', 'Day'], columns = 'measurement', values = 'reading')
+print(airquality_pivot.head())
+
+#To take it right back to the original
+airquality_pivot = airquality_pivot.reset_index()
+airquality_pivot.head()
+
+#Replacing missing values in the Ozone column
+oz_mean = df_air.Ozone.mean()
+df_air['Ozone'] = df_air.Ozone.fillna(oz_mean)
+df_air.info()
+
+
+###Working with the TB data
+df_tb = pd.read_csv('tb.csv')
+
+#Checking format prior to reshaping for variable splitting
+df_tb.head()
+
+df_tb_m = pd.melt(frame = df_tb, id_vars = ['country', 'year'])
+df_tb_m.head()
+
+#Creating gender and age columns
+df_tb_m['gender'] = df_tb_m.variable.str[0]
+df_tb_m['age'] = df_tb_m.variable.str[1:]
+
+###Running with the ebola data
+eb_df = pd.read_csv("ebola.csv")
+eb_df.columns
+eb_df_m = pd.melt(frame = eb_df, id_vars = ['Date', 'Day'], var_name = 'type_country', value_name = 'counts')
+
+#Splitting the 'type_country' column to extract countries
+eb_df_m['str_split'] = eb_df_m.type_country.str.split("_")
+eb_df_m['type'] = eb_df_m.str_split.str.get(0)
+eb_df_m['country'] = eb_df_m.str_split.str.get(1)
+eb_df_m.head()
+
+#Running assert statements on the data
+assert pd.notnull(eb_df).all().all()
+
+assert (eb_df >= 0).all().all()
+
+#Running again after some data editing
+eb_df_2 = eb_df.fillna(0)
+
+assert pd.notnull(eb_df_2).all().all()
+assert (eb_df_2 >= 0).all().all()
+
+
+
+
+###Working the uber data
+ub = pd.read_csv('nyc_uber_2014.csv')
+
+#Splitting the data by month
+ub['Date/Time'] = pd.to_datetime(ub['Date/Time'])
+ub['months'] = ub['Date/Time'].map(lambda x: x.month)
+ub_1 = ub.loc[(ub['months'] == 4)]
+ub_2 = ub.loc[(ub['months'] == 5)]
+ub_3 = ub.loc[(ub['months'] == 6)]
+
+#As an aside, multiple files in the workspace can be loaded in with the glob module
+# Write the pattern: pattern
+"pattern = '*.csv'"
+
+# Save all file matches: csv_files
+'csv_files = glob.glob(pattern)'
+
+# Create an empty list: frames
+"frames = []"
+#  Iterate over csv_files
+ "for csv in csv_files:"
+    #  Read csv into a DataFrame: df
+    "df = pd.read_csv(csv)"
+    # Append df to frames
+    "frames.append(df)"
+# Concatenate frames into a single DataFrame: uber
+"concated = pd.concat(frames)"
+
+###Loading in the TIPS dataset and performing initial conversion and cleaning###
+tip_df = pd.read_csv("tips.csv")
+tip_df.info()
+
+tip_df.sex = tip_df.sex.astype('category')
+tip_df.smoker = tip_df.smoker.astype('category')
+
+#Running a function to change a column's values
+# Define recode_sex()
+def recode_sex(sex_value):
+    # Return 1 if sex_value is 'Male'
+    if sex_value == "Male":
+        return 1
+    # Return 0 if sex_value is 'Female'
+    elif sex_value == "Female":
+        return 0
+    # Return np.nan
+    else:
+        return np.nan
+
+# Applying the function
+tip_df['sex_recode'] = tip_df.sex.apply(recode_sex)
+print(tip_df.head())
+
+#Adding a dollar to tips
+def dollarize(x):
+    as_str = str(x)
+    dol_str = "$" + as_str
+    return dol_str
+
+tip_df['total_dollars'] = tip_df.total_bill.apply(dollarize)
+
+#Returning the column to normal using replace
+tip_df['total_dollar_replace'] = tip_df.total_dollars.apply(lambda x: x.replace('$', ''))
+
+#Running a regex
+# Compiling the pattern
+prog = re.compile('\d{3}-\d{3}-\d{4}')
+
+# Pattern test
+result = prog.match('123-456-7890')
+print(bool(result))
+
+result = prog.match('1123-456-7890')
+print(bool(result))
+
+# Find the numeric values: matches. d+ ensures 10 gets read as 10 rather than 1 and 0
+matches = re.findall('\d+', 'the recipe calls for 10 strawberries and 1 banana')
+print(matches)
+
+# More pattern matching
+pattern1 = bool(re.match(pattern='\d{3}-\d{3}-\d{4}', string='123-456-7890'))
+print(pattern1)
+
+pattern2 = bool(re.match(pattern='\$\d*\.\d{2}', string='$123.45'))
+print(pattern2)
+
+pattern3 = bool(re.match(pattern='[A-Z]\w*', string='Australia'))
+print(pattern3)
+
+###Gapminder munging
