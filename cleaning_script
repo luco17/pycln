@@ -258,4 +258,21 @@ assert pd.notnull(gm_df_m.country).all()
 assert pd.notnull(gm_df_m.year).all()
 
 gm_df_m.dropna().shape
- 
+
+# Working with the melted data
+plt.subplot(2, 1, 1)
+# histogram of life_expectancy
+gm_df_m.life_expectancy.plot(kind = 'hist')
+# Agg ops
+gm_agg = gm_df_m.groupby('year')['life_expectancy'].mean()
+
+plt.subplot(2, 1, 2)
+
+gm_agg.plot()
+# Add title and specify axis labels
+plt.title('Life expectancy over the years')
+plt.ylabel('Life expectancy')
+plt.xlabel('Year')
+# Display the plots
+plt.tight_layout()
+plt.show()
