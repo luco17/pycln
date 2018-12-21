@@ -196,4 +196,66 @@ print(pattern2)
 pattern3 = bool(re.match(pattern='[A-Z]\w*', string='Australia'))
 print(pattern3)
 
-###Gapminder munging
+###gm_df_m munging
+gm_df = pd.read_csv('gapminder.csv', index_col = 'Life expectancy')
+gm_df = gm_df.loc[:, '1800':].reset_index()
+
+#Creating a subset for the 1800s
+g1800s = gm_df.loc[:260,:'1899']
+
+# Scatter plot of life exp from 1800 to 1899
+g1800s.plot(kind = 'scatter', x = '1800', y = '1899')
+plt.xlabel('Life Expectancy by Country in 1800')
+plt.ylabel('Life Expectancy by Country in 1899')
+plt.xlim(20, 55)
+plt.ylim(20, 55)
+plt.show()
+
+#Checking that data is presented correctly
+def check_null_or_valid(row_data):
+    """Examine a row of data,
+    drop missing values,
+    and check if remaining values are >= to 0
+    """
+    no_na = row_data.dropna()[1:-1]
+    numeric = pd.to_numeric(no_na)
+    ge0 = numeric >= 0
+    return ge0
+
+# Checking whether the values in the row are valid
+assert g1800s.iloc[:, 1:].apply(check_null_or_valid, axis=1).all().all()
+
+# Checking that there is only one instance of each country
+assert g1800s['Life expectancy'].value_counts()[0] == 1
+
+#Reshaping the whole dataset
+gm_df_m = gm_df.melt(id_vars = 'Life expectancy')
+gm_df_m.columns = ['country', 'year', 'life_expectancy']
+
+# Converting the year column to numeric
+gm_df_m.year = pd.to_numeric(gm_df_m.year)
+# Testing types
+assert gm_df_m.country.dtypes == np.object
+assert gm_df_m.year.dtypes == np.int64
+assert gm_df_m.life_expectancy.dtypes == np.float64
+
+#Cleaning country names
+# Create the series of countries: countries
+countries = gm_df_m.country
+# Dropping duplicates from countries
+countries = countries.drop_duplicates()
+# Writing a regex assuming all countries contain upper and lowercase letters, whitespace and periods
+pattern = '^[A-Za-z\.\s]*$'
+# Creating a boolean mask, note the invert
+mask = ~countries.str.contains(pattern)
+# Subset countries using mask_inverse: invalid_countries
+invalid_countries = countries.loc[mask]
+# Print invalid_countries
+print(invalid_countries)
+
+# Asserting that year & country have no missing values
+assert pd.notnull(gm_df_m.country).all()
+assert pd.notnull(gm_df_m.year).all()
+
+gm_df_m.dropna().shape
+ 
